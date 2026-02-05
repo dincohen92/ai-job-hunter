@@ -11,6 +11,7 @@ import {
   Send,
   Settings,
   BarChart3,
+  Users,
 } from "lucide-react";
 
 const navItems = [
@@ -18,6 +19,7 @@ const navItems = [
   { href: "/jobs", label: "Jobs", icon: Search },
   { href: "/resume", label: "Resume", icon: FileText },
   { href: "/cv", label: "CV Profile", icon: UserCircle },
+  { href: "/contacts", label: "Contacts", icon: Users },
   { href: "/outreach", label: "Outreach", icon: Send },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },

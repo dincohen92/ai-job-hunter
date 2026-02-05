@@ -22,6 +22,7 @@ model User {
   smtpConfig   SmtpConfig?
   cvProfile    CvProfile?
   coverLetters CoverLetter[]
+  contacts     Contact[]
 }
 
 model Resume {
@@ -198,4 +199,38 @@ model CoverLetter {
 
   @@index([userId])
   @@index([jobId])
+}
+
+model Contact {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  company          String?
+  role             String?
+  email            String?
+  phone            String?
+  linkedInUrl      String?
+  relationshipType String   @default("other") // recruiter, hiring_manager, referral, peer, other
+  notes            String?
+  tags             String?  // JSON array
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  interactions ContactInteraction[]
+
+  @@index([userId])
+}
+
+model ContactInteraction {
+  id         String   @id @default(cuid())
+  contactId  String
+  contact    Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  type       String   // email, call, meeting, linkedin_message, coffee_chat
+  date       DateTime
+  notes      String?
+  nextAction String?
+  createdAt  DateTime @default(now())
+
+  @@index([contactId])
 }
