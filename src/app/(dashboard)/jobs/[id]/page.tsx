@@ -17,10 +17,12 @@ import {
   MapPin,
   ExternalLink,
   FileText,
+  UserCircle,
   Send,
   ArrowLeft,
   Loader2,
   Trash2,
+  PenLine,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -255,6 +257,18 @@ export default function JobDetailPage() {
                 <Button variant="outline" className="w-full">
                   <FileText className="mr-2 h-4 w-4" />
                   Tailor Resume
+                </Button>
+              </Link>
+              <Link href={`/cv/generate?jobId=${job.id}`}>
+                <Button variant="outline" className="w-full">
+                  <UserCircle className="mr-2 h-4 w-4" />
+                  Build Resume from CV
+                </Button>
+              </Link>
+              <Link href={`/cover-letter/generate?jobId=${job.id}`}>
+                <Button variant="outline" className="w-full">
+                  <PenLine className="mr-2 h-4 w-4" />
+                  Generate Cover Letter
                 </Button>
               </Link>
               <Link href={`/outreach?jobId=${job.id}`}>

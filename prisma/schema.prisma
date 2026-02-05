@@ -20,6 +20,8 @@ model User {
   applications Application[]
   emails       Email[]
   smtpConfig   SmtpConfig?
+  cvProfile    CvProfile?
+  coverLetters CoverLetter[]
 }
 
 model Resume {
@@ -76,9 +78,11 @@ model SavedJob {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  application     Application?
-  tailoredResumes TailoredResume[]
-  emails          Email[]
+  application      Application?
+  tailoredResumes  TailoredResume[]
+  generatedResumes GeneratedResume[]
+  emails           Email[]
+  coverLetters     CoverLetter[]
 
   @@index([userId])
 }
@@ -133,4 +137,65 @@ model SmtpConfig {
   fromName String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model CvProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fullName  String?
+  email     String?
+  phone     String?
+  location  String?
+  linkedin  String?
+  website   String?
+  summary   String?
+
+  experience     String?
+  education      String?
+  skills         String?
+  projects       String?
+  certifications String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  generatedResumes GeneratedResume[]
+}
+
+model GeneratedResume {
+  id          String    @id @default(cuid())
+  cvProfileId String
+  cvProfile   CvProfile @relation(fields: [cvProfileId], references: [id], onDelete: Cascade)
+  jobId       String
+  job         SavedJob  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  content     String
+  contentHtml String?
+  matchScore  Int?
+  changes     String?
+  suggestions String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([cvProfileId])
+  @@index([jobId])
+}
+
+model CoverLetter {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobId     String
+  job       SavedJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  content   String
+  tone      String   @default("professional")
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([jobId])
 }
