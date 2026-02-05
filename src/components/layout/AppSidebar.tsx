@@ -7,15 +7,19 @@ import {
   LayoutDashboard,
   Search,
   FileText,
+  UserCircle,
   Send,
   Settings,
+  BarChart3,
 } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/jobs", label: "Jobs", icon: Search },
   { href: "/resume", label: "Resume", icon: FileText },
+  { href: "/cv", label: "CV Profile", icon: UserCircle },
   { href: "/outreach", label: "Outreach", icon: Send },
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
