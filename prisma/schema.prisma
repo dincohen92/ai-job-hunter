@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id             String    @id @default(cuid())
+  name           String?
+  email          String    @unique
+  hashedPassword String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  resumes      Resume[]
+  savedJobs    SavedJob[]
+  applications Application[]
+  emails       Email[]
+  smtpConfig   SmtpConfig?
+}
+
+model Resume {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  fileName  String?
+  rawText   String
+  parsed    String?
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tailoredVersions TailoredResume[]
+
+  @@index([userId])
+}
+
+model TailoredResume {
+  id             String   @id @default(cuid())
+  resumeId       String
+  resume         Resume   @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  jobId          String
+  job            SavedJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  tailoredText   String
+  tailoredParsed String?
+  matchScore     Int?
+  suggestions    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([resumeId, jobId])
+  @@index([resumeId])
+  @@index([jobId])
+}
+
+model SavedJob {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  externalId  String?
+  source      String    @default("manual")
+  title       String
+  company     String
+  location    String?
+  description String
+  requirements String?
+  salary      String?
+  jobType     String?
+  applyUrl    String?
+  companyLogo String?
+  postedAt    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  application     Application?
+  tailoredResumes TailoredResume[]
+  emails          Email[]
+
+  @@index([userId])
+}
+
+model Application {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobId     String    @unique
+  job       SavedJob  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  status    String    @default("saved")
+  notes     String?
+  appliedAt DateTime?
+  nextStep  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([userId, status])
+}
+
+model Email {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobId          String?
+  job            SavedJob? @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  recipientEmail String
+  recipientName  String?
+  subject        String
+  body           String
+  status         String    @default("draft")
+  sentAt         DateTime?
+  errorMessage   String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([userId, status])
+  @@index([jobId])
+}
+
+model SmtpConfig {
+  id       String  @id @default(cuid())
+  userId   String  @unique
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  host     String
+  port     Int     @default(587)
+  secure   Boolean @default(false)
+  username String
+  password String
+  fromName String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
