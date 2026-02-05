@@ -101,6 +101,8 @@ model Application {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
+  interviews Interview[]
+
   @@index([userId])
   @@index([userId, status])
 }
@@ -233,4 +235,23 @@ model ContactInteraction {
   createdAt  DateTime @default(now())
 
   @@index([contactId])
+}
+
+model Interview {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  scheduledAt   DateTime
+  duration      Int?        // minutes
+  type          String      @default("video") // phone, video, onsite, technical, behavioral, panel
+  location      String?     // address or meeting link
+  interviewers  String?     // JSON array of {name, role}
+  status        String      @default("scheduled") // scheduled, completed, cancelled, rescheduled
+  prepNotes     String?
+  postNotes     String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([applicationId])
+  @@index([scheduledAt])
 }
