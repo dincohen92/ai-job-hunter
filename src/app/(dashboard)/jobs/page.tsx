@@ -236,34 +236,45 @@ export default function JobsPage() {
 
   async function saveJob(job: Job) {
     const normalized = normalizeJob(job);
-    setSavingId(normalized.externalId || normalized.id);
+    const jobKey = normalized.externalId || normalized.id;
+    setSavingId(jobKey);
 
-    const res = await fetch("/api/jobs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        externalId: normalized.externalId,
-        source: normalized.source,
-        title: normalized.title,
-        company: normalized.company,
-        location: normalized.location,
-        description: normalized.description,
-        salary: normalized.salary,
-        jobType: normalized.jobType,
-        applyUrl: normalized.applyUrl,
-        companyLogo: normalized.companyLogo,
-      }),
-    });
-
-    if (res.ok) {
-      setSavedIds((prev) => {
-        const next = new Set(Array.from(prev));
-        next.add(normalized.externalId || "");
-        return next;
+    try {
+      const res = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          externalId: normalized.externalId,
+          source: normalized.source,
+          title: normalized.title,
+          company: normalized.company,
+          location: normalized.location,
+          description: normalized.description,
+          salary: normalized.salary,
+          jobType: normalized.jobType,
+          applyUrl: normalized.applyUrl,
+          companyLogo: normalized.companyLogo,
+        }),
       });
-      fetchSavedJobs();
+
+      if (res.ok) {
+        setSavedIds((prev) => {
+          const next = new Set(Array.from(prev));
+          next.add(jobKey);
+          return next;
+        });
+        fetchSavedJobs();
+      } else {
+        const error = await res.json();
+        console.error("Save failed:", error);
+        alert(`Failed to save job: ${error.error || "Unknown error"}`);
+      }
+    } catch (err) {
+      console.error("Save error:", err);
+      alert("Failed to save job. Please try again.");
+    } finally {
+      setSavingId(null);
     }
-    setSavingId(null);
   }
 
   async function handlePaste() {
@@ -442,9 +453,11 @@ export default function JobsPage() {
             <div className="grid gap-4 md:grid-cols-2">
               {searchResults.map((job) => {
                 const n = normalizeJob(job);
-                const isSaved = savedIds.has(n.externalId || "");
+                const jobKey = n.externalId || n.id;
+                const isSaved = savedIds.has(jobKey);
+                const isSaving = savingId === jobKey;
                 return (
-                  <Card key={n.externalId || n.id}>
+                  <Card key={jobKey}>
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="space-y-1">
@@ -463,12 +476,12 @@ export default function JobsPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => !isSaved && saveJob(job)}
-                          disabled={isSaved || savingId === n.externalId}
+                          onClick={() => !isSaved && !isSaving && saveJob(job)}
+                          disabled={isSaved || isSaving}
                         >
                           {isSaved ? (
                             <BookmarkCheck className="h-5 w-5 text-blue-600" />
-                          ) : savingId === n.externalId ? (
+                          ) : isSaving ? (
                             <Loader2 className="h-5 w-5 animate-spin" />
                           ) : (
                             <Bookmark className="h-5 w-5" />
