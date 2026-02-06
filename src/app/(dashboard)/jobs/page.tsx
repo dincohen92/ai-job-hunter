@@ -7,13 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +29,12 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
+
+interface JobSource {
+  name: string;
+  displayName: string;
+  configured: boolean;
+}
 
 interface Job {
   id?: string;
@@ -93,10 +93,7 @@ export default function JobsPage() {
   const activeTab = searchParams.get("tab") || "search";
 
   const [query, setQuery] = useState("");
-  const [datePosted, setDatePosted] = useState("all");
   const [remote, setRemote] = useState(false);
-  const [employmentType, setEmploymentType] = useState("all");
-  const [experience, setExperience] = useState("all");
   const [searchResults, setSearchResults] = useState<Job[]>([]);
   const [savedJobs, setSavedJobs] = useState<Job[]>([]);
   const [searching, setSearching] = useState(false);
@@ -106,6 +103,9 @@ export default function JobsPage() {
   const [pasteText, setPasteText] = useState("");
   const [parsing, setParsing] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [sources, setSources] = useState<JobSource[]>([]);
+  const [selectedSources, setSelectedSources] = useState<Set<string>>(new Set());
+  const [searchErrors, setSearchErrors] = useState<{ source: string; error: string }[]>([]);
 
   function setActiveTab(tab: string) {
     router.push(`/jobs?tab=${tab}`, { scroll: false });
@@ -113,7 +113,30 @@ export default function JobsPage() {
 
   useEffect(() => {
     fetchSavedJobs();
+    fetchSources();
   }, []);
+
+  async function fetchSources() {
+    const res = await fetch("/api/jobs/sources");
+    if (res.ok) {
+      const data = await res.json();
+      setSources(data.sources);
+      // Select all configured sources by default
+      setSelectedSources(new Set(data.configured));
+    }
+  }
+
+  function toggleSource(sourceName: string) {
+    setSelectedSources((prev) => {
+      const next = new Set(Array.from(prev));
+      if (next.has(sourceName)) {
+        next.delete(sourceName);
+      } else {
+        next.add(sourceName);
+      }
+      return next;
+    });
+  }
 
   async function fetchSavedJobs() {
     const res = await fetch("/api/jobs");
@@ -127,24 +150,30 @@ export default function JobsPage() {
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     if (!query.trim()) return;
+    if (selectedSources.size === 0) {
+      alert("Please select at least one job source");
+      return;
+    }
     setSearching(true);
+    setSearchErrors([]);
 
     const params = new URLSearchParams({ q: query });
-    if (datePosted !== "all") params.set("datePosted", datePosted);
+    params.set("sources", Array.from(selectedSources).join(","));
     if (remote) params.set("remote", "true");
-    if (employmentType !== "all") params.set("type", employmentType);
-    if (experience !== "all") params.set("experience", experience);
 
     try {
-      const res = await fetch(`/api/jobs/search?${params}`);
+      const res = await fetch(`/api/jobs/search/multi?${params}`);
       const data = await res.json();
       if (data.error) {
         alert(data.error);
       } else {
-        setSearchResults(data.data || []);
+        setSearchResults(data.jobs || []);
+        if (data.errors?.length > 0) {
+          setSearchErrors(data.errors);
+        }
       }
     } catch {
-      alert("Search failed. Check your API key.");
+      alert("Search failed. Check your API configuration.");
     } finally {
       setSearching(false);
     }
@@ -159,7 +188,7 @@ export default function JobsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         externalId: normalized.externalId,
-        source: "jsearch",
+        source: normalized.source,
         title: normalized.title,
         company: normalized.company,
         location: normalized.location,
@@ -303,52 +332,47 @@ export default function JobsPage() {
                 )}
               </Button>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Select value={datePosted} onValueChange={setDatePosted}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Date Posted" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Any time</SelectItem>
-                  <SelectItem value="today">Today</SelectItem>
-                  <SelectItem value="3days">3 days</SelectItem>
-                  <SelectItem value="week">This week</SelectItem>
-                  <SelectItem value="month">This month</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={employmentType} onValueChange={setEmploymentType}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Job Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All types</SelectItem>
-                  <SelectItem value="FULLTIME">Full-time</SelectItem>
-                  <SelectItem value="PARTTIME">Part-time</SelectItem>
-                  <SelectItem value="CONTRACTOR">Contract</SelectItem>
-                  <SelectItem value="INTERN">Internship</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={experience} onValueChange={setExperience}>
-                <SelectTrigger className="w-[170px]">
-                  <SelectValue placeholder="Experience" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Any experience</SelectItem>
-                  <SelectItem value="no_experience">No experience</SelectItem>
-                  <SelectItem value="under_3_years_experience">Under 3 years</SelectItem>
-                  <SelectItem value="more_than_3_years_experience">3+ years</SelectItem>
-                  <SelectItem value="no_degree">No degree</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-gray-500">Sources:</span>
+                {sources.map((source) => (
+                  <label
+                    key={source.name}
+                    className={`flex items-center gap-1.5 text-sm ${!source.configured ? "opacity-50" : ""}`}
+                  >
+                    <Checkbox
+                      checked={selectedSources.has(source.name)}
+                      onCheckedChange={() => toggleSource(source.name)}
+                      disabled={!source.configured}
+                    />
+                    {source.displayName}
+                    {!source.configured && (
+                      <span className="text-xs text-gray-400">(not configured)</span>
+                    )}
+                  </label>
+                ))}
+              </div>
               <Button
                 type="button"
                 variant={remote ? "default" : "outline"}
+                size="sm"
                 onClick={() => setRemote(!remote)}
               >
-                Remote
+                Remote Only
               </Button>
             </div>
           </form>
+
+          {searchErrors.length > 0 && (
+            <div className="rounded-md bg-yellow-50 p-3 text-sm text-yellow-800">
+              <p className="font-medium">Some sources failed:</p>
+              <ul className="mt-1 list-disc pl-5">
+                {searchErrors.map((err, i) => (
+                  <li key={i}>{err.source}: {err.error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {searchResults.length > 0 && (
             <div className="grid gap-4 md:grid-cols-2">
@@ -396,6 +420,9 @@ export default function JobsPage() {
                         {n.salary && (
                           <Badge variant="outline">{n.salary}</Badge>
                         )}
+                        <Badge variant="outline" className="capitalize text-xs">
+                          {n.source}
+                        </Badge>
                       </div>
                       <p className="mt-3 line-clamp-3 text-sm text-gray-600">
                         {n.description.replace(/<[^>]*>/g, "").slice(0, 200)}...
