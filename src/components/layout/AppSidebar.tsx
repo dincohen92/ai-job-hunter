@@ -15,6 +15,7 @@ import {
   Calendar,
   CheckSquare,
   Building2,
+  DollarSign,
 } from "lucide-react";
 
 const navItems = [
@@ -25,6 +26,7 @@ const navItems = [
   { href: "/contacts", label: "Contacts", icon: Users },
   { href: "/companies", label: "Companies", icon: Building2 },
   { href: "/interviews", label: "Interviews", icon: Calendar },
+  { href: "/offers", label: "Offers", icon: DollarSign },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/outreach", label: "Outreach", icon: Send },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },

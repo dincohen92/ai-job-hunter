@@ -89,6 +89,10 @@ model SavedJob {
   emails           Email[]
   coverLetters     CoverLetter[]
   tasks            Task[]
+  // Salary tracking
+  salaryMin        Int?
+  salaryMax        Int?
+  salaryExpectation Int?
 
   @@index([userId])
   @@index([companyId])
@@ -109,6 +113,7 @@ model Application {
 
   interviews Interview[]
   tasks      Task[]
+  offer      Offer?
 
   @@index([userId])
   @@index([userId, status])
@@ -342,4 +347,30 @@ model Company {
 
   @@unique([userId, name])
   @@index([userId])
+}
+
+model Offer {
+  id              String      @id @default(cuid())
+  applicationId   String      @unique
+  application     Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  baseSalary      Int?
+  bonus           Int?
+  bonusType       String?     // signing, annual, performance
+  equity          String?     // description of equity package
+  equityValue     Int?        // estimated annual value
+  vestingYears    Int?        @default(4)
+  benefits        String?     // JSON or text description
+  benefitsValue   Int?        // estimated annual value
+  pto             Int?        // days per year
+  remotePolicy    String?     // full, hybrid, onsite
+  location        String?
+  startDate       DateTime?
+  expirationDate  DateTime?
+  status          String      @default("pending") // pending, accepted, declined, expired, negotiating
+  notes           String?
+  negotiationLog  String?     // JSON array of negotiation rounds
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([status])
 }
