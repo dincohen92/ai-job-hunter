@@ -15,16 +15,23 @@ model User {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  resumes      Resume[]
-  savedJobs    SavedJob[]
-  applications Application[]
-  emails       Email[]
-  smtpConfig   SmtpConfig?
-  cvProfile    CvProfile?
-  coverLetters CoverLetter[]
-  contacts     Contact[]
-  tasks        Task[]
-  companies    Company[]
+  resumes         Resume[]
+  savedJobs       SavedJob[]
+  applications    Application[]
+  emails          Email[]
+  smtpConfig      SmtpConfig?
+  cvProfile       CvProfile?
+  coverLetters    CoverLetter[]
+  contacts        Contact[]
+  tasks           Task[]
+  companies       Company[]
+  recommendations JobRecommendation[]
+  preferences     UserPreference?
+  alerts          JobAlert[]
+  notifications   Notification[]
+  templates       ApplicationTemplate[]
+  skillAnalyses   SkillAnalysis[]
+  backups         Backup[]
 }
 
 model Resume {
@@ -89,6 +96,7 @@ model SavedJob {
   emails           Email[]
   coverLetters     CoverLetter[]
   tasks            Task[]
+  recommendations  JobRecommendation[]
   // Salary tracking
   salaryMin        Int?
   salaryMax        Int?
@@ -114,6 +122,7 @@ model Application {
   interviews Interview[]
   tasks      Task[]
   offer      Offer?
+  answers    ApplicationAnswer[]
 
   @@index([userId])
   @@index([userId, status])
@@ -373,4 +382,142 @@ model Offer {
   updatedAt       DateTime    @updatedAt
 
   @@index([status])
+}
+
+// Issue #12: AI Job Recommendations
+model JobRecommendation {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobId     String
+  job       SavedJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  score     Float    // 0-1 relevance score
+  reason    String   // explanation
+  feedback  String?  // liked, disliked, null
+  seen      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, jobId])
+  @@index([userId])
+  @@index([score])
+}
+
+model UserPreference {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preferredTitles String?  // JSON array
+  preferredSkills String?  // JSON array
+  avoidCompanies  String?  // JSON array
+  minSalary       Int?
+  remoteOnly      Boolean  @default(false)
+  locations       String?  // JSON array
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Issue #13: Job Alerts & Notifications
+model JobAlert {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  query        String
+  location     String?
+  filters      String?   // JSON of filter options
+  sources      String?   // JSON array of job sources to search
+  frequency    String    @default("daily") // instant, daily, weekly
+  enabled      Boolean   @default(true)
+  lastChecked  DateTime?
+  lastNotified DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  notifications Notification[]
+
+  @@index([userId])
+  @@index([enabled])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String    // job_alert, reminder, system
+  title     String
+  message   String
+  link      String?   // URL to navigate to
+  read      Boolean   @default(false)
+  alertId   String?
+  alert     JobAlert? @relation(fields: [alertId], references: [id], onDelete: SetNull)
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([userId, read])
+}
+
+// Issue #14: Application Templates & Quick Apply
+model ApplicationTemplate {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category   String   // authorization, salary, availability, about_me, why_here, custom
+  question   String
+  answer     String
+  tags       String?  // JSON array
+  charCount  Int?
+  usageCount Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  answers ApplicationAnswer[]
+
+  @@index([userId])
+  @@index([category])
+}
+
+model ApplicationAnswer {
+  id            String               @id @default(cuid())
+  applicationId String
+  application   Application          @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  templateId    String?
+  template      ApplicationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  question      String
+  answer        String
+  createdAt     DateTime             @default(now())
+
+  @@index([applicationId])
+}
+
+// Issue #15: Skills Gap Analysis
+model SkillAnalysis {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill       String
+  demandCount Int      // how many jobs request it
+  hasSkill    Boolean  // user has this skill
+  priority    String   @default("medium") // high, medium, low
+  resources   String?  // JSON array of learning resources
+  notes       String?
+  status      String   @default("gap") // gap, learning, acquired
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, skill])
+  @@index([userId])
+  @@index([priority])
+}
+
+// Issue #16: Import/Export & Data Backup
+model Backup {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  size      Int      // bytes
+  data      String   // JSON blob (or path to file for large backups)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
 }

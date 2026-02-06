@@ -16,6 +16,9 @@ import {
   CheckSquare,
   Building2,
   DollarSign,
+  Bell,
+  ClipboardList,
+  Target,
 } from "lucide-react";
 
 const navItems = [
@@ -28,6 +31,9 @@ const navItems = [
   { href: "/interviews", label: "Interviews", icon: Calendar },
   { href: "/offers", label: "Offers", icon: DollarSign },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
+  { href: "/alerts", label: "Alerts", icon: Bell },
+  { href: "/templates", label: "Templates", icon: ClipboardList },
+  { href: "/skills", label: "Skills", icon: Target },
   { href: "/outreach", label: "Outreach", icon: Send },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },

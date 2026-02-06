@@ -27,6 +27,10 @@ import {
   Plus,
   Sparkles,
   Trash2,
+  ThumbsUp,
+  ThumbsDown,
+  RefreshCw,
+  Star,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -61,6 +65,15 @@ interface Job {
   employer_logo?: string;
   source?: string;
   application?: { status: string } | null;
+}
+
+interface Recommendation {
+  id: string;
+  jobId: string;
+  score: number;
+  reason: string;
+  feedback: string | null;
+  job: Job;
 }
 
 function normalizeJob(job: Job) {
@@ -106,6 +119,9 @@ export default function JobsPage() {
   const [sources, setSources] = useState<JobSource[]>([]);
   const [selectedSources, setSelectedSources] = useState<Set<string>>(new Set());
   const [searchErrors, setSearchErrors] = useState<{ source: string; error: string }[]>([]);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [loadingRecs, setLoadingRecs] = useState(false);
+  const [generatingRecs, setGeneratingRecs] = useState(false);
 
   function setActiveTab(tab: string) {
     router.push(`/jobs?tab=${tab}`, { scroll: false });
@@ -114,7 +130,46 @@ export default function JobsPage() {
   useEffect(() => {
     fetchSavedJobs();
     fetchSources();
+    fetchRecommendations();
   }, []);
+
+  async function fetchRecommendations() {
+    setLoadingRecs(true);
+    try {
+      const res = await fetch("/api/recommendations");
+      if (res.ok) {
+        const data = await res.json();
+        setRecommendations(data);
+      }
+    } finally {
+      setLoadingRecs(false);
+    }
+  }
+
+  async function generateRecommendations() {
+    setGeneratingRecs(true);
+    try {
+      const res = await fetch("/api/recommendations/generate", { method: "POST" });
+      if (res.ok) {
+        await fetchRecommendations();
+      }
+    } finally {
+      setGeneratingRecs(false);
+    }
+  }
+
+  async function sendFeedback(recId: string, feedback: "liked" | "disliked") {
+    const res = await fetch(`/api/recommendations/${recId}/feedback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ feedback }),
+    });
+    if (res.ok) {
+      setRecommendations((prev) =>
+        prev.map((r) => (r.id === recId ? { ...r, feedback } : r))
+      );
+    }
+  }
 
   async function fetchSources() {
     const res = await fetch("/api/jobs/sources");
@@ -310,6 +365,15 @@ export default function JobsPage() {
         <TabsList>
           <TabsTrigger value="search">Search</TabsTrigger>
           <TabsTrigger value="saved">Saved ({savedJobs.length})</TabsTrigger>
+          <TabsTrigger value="foryou" className="gap-1">
+            <Star className="h-3.5 w-3.5" />
+            For You
+            {recommendations.length > 0 && (
+              <span className="ml-1 rounded-full bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700">
+                {recommendations.length}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="search" className="space-y-4">
@@ -511,6 +575,123 @@ export default function JobsPage() {
                       </CardContent>
                     </Card>
                   </Link>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="foryou" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500">
+              AI-powered job recommendations based on your profile and preferences
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={generateRecommendations}
+              disabled={generatingRecs}
+            >
+              {generatingRecs ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Refresh Recommendations
+                </>
+              )}
+            </Button>
+          </div>
+
+          {loadingRecs ? (
+            <div className="py-12 text-center">
+              <Loader2 className="mx-auto h-8 w-8 animate-spin text-gray-400" />
+            </div>
+          ) : recommendations.length === 0 ? (
+            <div className="py-12 text-center text-gray-500">
+              <Star className="mx-auto h-12 w-12 text-gray-300" />
+              <p className="mt-4">No recommendations yet.</p>
+              <p className="mt-1 text-sm">
+                Save some jobs and set up your CV profile, then click &quot;Refresh
+                Recommendations&quot;
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {recommendations.map((rec) => {
+                const n = normalizeJob(rec.job);
+                return (
+                  <Card key={rec.id} className="relative">
+                    <div className="absolute right-2 top-2 flex items-center gap-1">
+                      <Badge
+                        variant="secondary"
+                        className="bg-gradient-to-r from-blue-100 to-purple-100 text-blue-700"
+                      >
+                        {Math.round(rec.score * 100)}% match
+                      </Badge>
+                    </div>
+                    <CardHeader className="pb-3 pt-8">
+                      <div className="space-y-1">
+                        <CardTitle className="text-lg">{n.title}</CardTitle>
+                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                          <Building className="h-3.5 w-3.5" />
+                          {n.company}
+                        </div>
+                        {n.location && (
+                          <div className="flex items-center gap-2 text-sm text-gray-500">
+                            <MapPin className="h-3.5 w-3.5" />
+                            {n.location}
+                          </div>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm italic text-blue-600">&quot;{rec.reason}&quot;</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {n.jobType && (
+                          <Badge variant="secondary">{n.jobType}</Badge>
+                        )}
+                        {n.salary && <Badge variant="outline">{n.salary}</Badge>}
+                      </div>
+                      <div className="mt-4 flex items-center justify-between">
+                        <Link
+                          href={`/jobs/${n.id}`}
+                          className="text-sm text-blue-600 hover:underline"
+                        >
+                          View Details
+                        </Link>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={
+                              rec.feedback === "liked"
+                                ? "text-green-600"
+                                : "text-gray-400"
+                            }
+                            onClick={() => sendFeedback(rec.id, "liked")}
+                          >
+                            <ThumbsUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={
+                              rec.feedback === "disliked"
+                                ? "text-red-600"
+                                : "text-gray-400"
+                            }
+                            onClick={() => sendFeedback(rec.id, "disliked")}
+                          >
+                            <ThumbsDown className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 );
               })}
             </div>

@@ -14,7 +14,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, CheckCircle, XCircle } from "lucide-react";
+import {
+  Loader2,
+  CheckCircle,
+  XCircle,
+  Upload,
+  RotateCcw,
+  Database,
+  FileJson,
+  FileSpreadsheet,
+} from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface SmtpConfig {
   host: string;
@@ -23,6 +33,13 @@ interface SmtpConfig {
   username: string;
   password: string;
   fromName: string;
+}
+
+interface Backup {
+  id: string;
+  name: string;
+  size: number;
+  createdAt: string;
 }
 
 export default function SettingsPage() {
@@ -43,6 +60,21 @@ export default function SettingsPage() {
     error?: string;
   } | null>(null);
 
+  // Data management state
+  const [backups, setBackups] = useState<Backup[]>([]);
+  const [creatingBackup, setCreatingBackup] = useState(false);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [exportTypes, setExportTypes] = useState({
+    cvProfile: true,
+    savedJobs: true,
+    applications: true,
+    contacts: true,
+    companies: true,
+    templates: true,
+  });
+
   useEffect(() => {
     fetch("/api/settings/smtp")
       .then((r) => r.json())
@@ -58,7 +90,85 @@ export default function SettingsPage() {
           });
         }
       });
+    fetchBackups();
   }, []);
+
+  async function fetchBackups() {
+    const res = await fetch("/api/backups");
+    if (res.ok) {
+      const data = await res.json();
+      setBackups(data);
+    }
+  }
+
+  async function createBackup() {
+    setCreatingBackup(true);
+    const res = await fetch("/api/backups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    if (res.ok) {
+      fetchBackups();
+    }
+    setCreatingBackup(false);
+  }
+
+  async function restoreBackup(id: string) {
+    if (!confirm("This will replace all your current data. Are you sure?")) {
+      return;
+    }
+    setRestoringId(id);
+    await fetch(`/api/backups/${id}/restore`, { method: "POST" });
+    setRestoringId(null);
+    alert("Restore complete! Please refresh the page.");
+  }
+
+  async function handleExport(format: "json" | "csv") {
+    setExporting(true);
+    const types = Object.entries(exportTypes)
+      .filter(([, v]) => v)
+      .map(([k]) => k)
+      .join(",");
+
+    window.location.href = `/api/export?format=${format}&types=${types}`;
+    setTimeout(() => setExporting(false), 1000);
+  }
+
+  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      const res = await fetch("/api/import?mode=merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        alert(`Import complete! ${JSON.stringify(result.stats)}`);
+      } else {
+        alert("Import failed");
+      }
+    } catch {
+      alert("Invalid JSON file");
+    } finally {
+      setImporting(false);
+      e.target.value = "";
+    }
+  }
+
+  function formatBytes(bytes: number) {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -287,6 +397,134 @@ export default function SettingsPage() {
               </p>
             </div>
             <Badge variant="outline">Server-side</Badge>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Data Management</CardTitle>
+          <CardDescription>
+            Export your data, import from other tools, or create backups.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Export Section */}
+          <div>
+            <h3 className="mb-3 font-medium">Export Data</h3>
+            <div className="mb-3 flex flex-wrap gap-4">
+              {Object.entries(exportTypes).map(([key, value]) => (
+                <label key={key} className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={value}
+                    onCheckedChange={(checked) =>
+                      setExportTypes((prev) => ({
+                        ...prev,
+                        [key]: checked === true,
+                      }))
+                    }
+                  />
+                  <span className="capitalize">{key.replace(/([A-Z])/g, " $1")}</span>
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => handleExport("json")}
+                disabled={exporting}
+              >
+                <FileJson className="mr-2 h-4 w-4" />
+                Export JSON
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleExport("csv")}
+                disabled={exporting}
+              >
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Export CSV
+              </Button>
+            </div>
+          </div>
+
+          {/* Import Section */}
+          <div>
+            <h3 className="mb-3 font-medium">Import Data</h3>
+            <p className="mb-2 text-sm text-gray-500">
+              Import from a JSON file (exported from this app or compatible format)
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleImport}
+                className="hidden"
+                id="import-file"
+                disabled={importing}
+              />
+              <Button
+                variant="outline"
+                onClick={() => document.getElementById("import-file")?.click()}
+                disabled={importing}
+              >
+                {importing ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="mr-2 h-4 w-4" />
+                )}
+                Import JSON
+              </Button>
+            </div>
+          </div>
+
+          {/* Backups Section */}
+          <div>
+            <h3 className="mb-3 font-medium">Backups</h3>
+            <div className="mb-3">
+              <Button onClick={createBackup} disabled={creatingBackup}>
+                {creatingBackup ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Database className="mr-2 h-4 w-4" />
+                )}
+                Create Backup
+              </Button>
+            </div>
+
+            {backups.length === 0 ? (
+              <p className="text-sm text-gray-500">No backups yet</p>
+            ) : (
+              <div className="space-y-2">
+                {backups.map((backup) => (
+                  <div
+                    key={backup.id}
+                    className="flex items-center justify-between rounded-md border p-3"
+                  >
+                    <div>
+                      <p className="font-medium">{backup.name}</p>
+                      <p className="text-sm text-gray-500">
+                        {new Date(backup.createdAt).toLocaleString()} •{" "}
+                        {formatBytes(backup.size)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => restoreBackup(backup.id)}
+                      disabled={restoringId === backup.id}
+                    >
+                      {restoringId === backup.id ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <RotateCcw className="mr-2 h-4 w-4" />
+                      )}
+                      Restore
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
