@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +53,10 @@ interface JobDetail {
 export default function JobDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromSaved = searchParams.get("from") === "saved";
+  const backUrl = fromSaved ? "/jobs?tab=saved" : "/jobs";
+
   const [job, setJob] = useState<JobDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
@@ -92,7 +96,7 @@ export default function JobDetailPage() {
     if (!confirm("Delete this saved job?")) return;
     setDeleting(true);
     await fetch(`/api/jobs/${id}`, { method: "DELETE" });
-    router.push("/jobs");
+    router.push(backUrl);
   }
 
   if (loading) {
@@ -121,7 +125,7 @@ export default function JobDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link href="/jobs">
+        <Link href={backUrl}>
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-5 w-5" />
           </Button>

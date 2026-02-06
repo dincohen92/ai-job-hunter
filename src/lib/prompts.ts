@@ -346,3 +346,74 @@ ${jobDescription}
 Please write a ${tone} cover letter for this position.`,
   };
 }
+
+export function buildInterviewQuestionsPrompt(
+  jobDescription: string,
+  jobTitle: string,
+  company: string,
+  interviewType: string
+) {
+  const typeInstructions: Record<string, string> = {
+    behavioral: "Focus heavily on behavioral questions using STAR method scenarios.",
+    technical: "Include more technical and problem-solving questions specific to the role.",
+    phone: "Focus on screening-level questions about experience and motivation.",
+    video: "Mix of behavioral and technical questions typical for video interviews.",
+    onsite: "Comprehensive mix including behavioral, technical, and situational questions.",
+    panel: "Include questions that might come from different perspectives (HR, team, manager).",
+  };
+
+  return {
+    system: `You are an expert interview coach. Generate practice interview questions based on the job description and interview type.
+
+For each question, provide:
+- The question text
+- The question type (behavioral, technical, situational, or company)
+- A brief hint about what the interviewer is looking for
+- For behavioral questions, suggest a STAR framework outline
+
+${typeInstructions[interviewType] || "Generate a balanced mix of question types."}
+
+Return a JSON response:
+{
+  "questions": [
+    {
+      "question": "Tell me about a time when...",
+      "type": "behavioral",
+      "hint": "They want to see your problem-solving ability",
+      "starFramework": {
+        "situation": "Set the context - describe a specific situation",
+        "task": "What was your responsibility or goal?",
+        "action": "What specific steps did you take?",
+        "result": "What was the outcome? Use metrics if possible"
+      }
+    },
+    {
+      "question": "How would you approach...",
+      "type": "technical",
+      "hint": "Demonstrate your technical knowledge",
+      "starFramework": null
+    }
+  ],
+  "companyResearchTips": [
+    "Research tip 1 specific to this company",
+    "Research tip 2"
+  ],
+  "prepChecklist": [
+    "Review the job description requirements",
+    "Prepare 3-5 questions to ask the interviewer",
+    "Test your technology setup"
+  ]
+}
+
+Generate 10-12 high-quality questions. Return ONLY valid JSON.`,
+    user: `INTERVIEW DETAILS:
+Position: ${jobTitle}
+Company: ${company}
+Interview Type: ${interviewType}
+
+JOB DESCRIPTION:
+${jobDescription}
+
+Please generate practice interview questions tailored to this specific role and company.`,
+  };
+}

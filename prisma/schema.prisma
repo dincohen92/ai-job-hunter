@@ -23,6 +23,8 @@ model User {
   cvProfile    CvProfile?
   coverLetters CoverLetter[]
   contacts     Contact[]
+  tasks        Task[]
+  companies    Company[]
 }
 
 model Resume {
@@ -76,6 +78,8 @@ model SavedJob {
   applyUrl    String?
   companyLogo String?
   postedAt    DateTime?
+  companyId   String?
+  companyRef  Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -84,8 +88,10 @@ model SavedJob {
   generatedResumes GeneratedResume[]
   emails           Email[]
   coverLetters     CoverLetter[]
+  tasks            Task[]
 
   @@index([userId])
+  @@index([companyId])
 }
 
 model Application {
@@ -102,6 +108,7 @@ model Application {
   updatedAt DateTime  @updatedAt
 
   interviews Interview[]
+  tasks      Task[]
 
   @@index([userId])
   @@index([userId, status])
@@ -209,6 +216,8 @@ model Contact {
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name             String
   company          String?
+  companyId        String?
+  companyRef       Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
   role             String?
   email            String?
   phone            String?
@@ -220,8 +229,10 @@ model Contact {
   updatedAt        DateTime @updatedAt
 
   interactions ContactInteraction[]
+  tasks        Task[]
 
   @@index([userId])
+  @@index([companyId])
 }
 
 model ContactInteraction {
@@ -249,9 +260,86 @@ model Interview {
   status        String      @default("scheduled") // scheduled, completed, cancelled, rescheduled
   prepNotes     String?
   postNotes     String?
+  // Reflection fields
+  wentWell      String?
+  toImprove     String?
+  questionsAsked String?    // JSON array of questions they asked
+  myQuestions   String?     // JSON array of questions I asked
+  overallRating Int?        // 1-5 rating
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
+  questions     InterviewQuestion[]
+
   @@index([applicationId])
   @@index([scheduledAt])
+}
+
+model InterviewQuestion {
+  id          String    @id @default(cuid())
+  interviewId String
+  interview   Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  question    String
+  type        String    // behavioral, technical, situational, company
+  answer      String?   // User's prepared answer
+  starAnswer  String?   // JSON {situation, task, action, result}
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([interviewId])
+}
+
+model Task {
+  id            String       @id @default(cuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
+  dueDate       DateTime?
+  priority      String       @default("medium") // low, medium, high
+  status        String       @default("pending") // pending, completed, cancelled
+  type          String?      // follow_up, thank_you, check_in, apply, custom
+  applicationId String?
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  contactId     String?
+  contact       Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  jobId         String?
+  job           SavedJob?    @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  completedAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([userId])
+  @@index([dueDate])
+  @@index([status])
+}
+
+model Company {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  website     String?
+  industry    String?
+  size        String?  // startup, small, medium, large, enterprise
+  location    String?
+  description String?
+  culture     String?  // Notes about company culture
+  techStack   String?  // JSON array of technologies
+  glassdoor   String?  // Glassdoor URL or rating info
+  linkedin    String?  // Company LinkedIn URL
+  notes       String?  // General research notes
+  pros        String?  // Positive aspects
+  cons        String?  // Negative aspects / red flags
+  salaryRange String?  // Typical salary range for roles
+  interviewProcess String? // Notes about their interview process
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  savedJobs   SavedJob[]
+  contacts    Contact[]
+
+  @@unique([userId, name])
+  @@index([userId])
 }

@@ -13,6 +13,8 @@ import {
   BarChart3,
   Users,
   Calendar,
+  CheckSquare,
+  Building2,
 } from "lucide-react";
 
 const navItems = [
@@ -21,7 +23,9 @@ const navItems = [
   { href: "/resume", label: "Resume", icon: FileText },
   { href: "/cv", label: "CV Profile", icon: UserCircle },
   { href: "/contacts", label: "Contacts", icon: Users },
+  { href: "/companies", label: "Companies", icon: Building2 },
   { href: "/interviews", label: "Interviews", icon: Calendar },
+  { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/outreach", label: "Outreach", icon: Send },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },

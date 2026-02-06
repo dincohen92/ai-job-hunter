@@ -71,6 +71,11 @@ export async function PUT(
     status,
     prepNotes,
     postNotes,
+    wentWell,
+    toImprove,
+    questionsAsked,
+    myQuestions,
+    overallRating,
   } = body;
 
   const updated = await prisma.interview.update({
@@ -89,6 +94,15 @@ export async function PUT(
       status: status ?? existing.status,
       prepNotes: prepNotes !== undefined ? prepNotes : existing.prepNotes,
       postNotes: postNotes !== undefined ? postNotes : existing.postNotes,
+      wentWell: wentWell !== undefined ? wentWell : existing.wentWell,
+      toImprove: toImprove !== undefined ? toImprove : existing.toImprove,
+      questionsAsked: questionsAsked !== undefined
+        ? (questionsAsked ? JSON.stringify(questionsAsked) : null)
+        : existing.questionsAsked,
+      myQuestions: myQuestions !== undefined
+        ? (myQuestions ? JSON.stringify(myQuestions) : null)
+        : existing.myQuestions,
+      overallRating: overallRating !== undefined ? overallRating : existing.overallRating,
     },
     include: {
       application: {

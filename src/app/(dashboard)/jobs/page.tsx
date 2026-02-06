@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,6 +32,7 @@ import {
   Loader2,
   Plus,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -86,6 +88,10 @@ function normalizeJob(job: Job) {
 }
 
 export default function JobsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeTab = searchParams.get("tab") || "search";
+
   const [query, setQuery] = useState("");
   const [datePosted, setDatePosted] = useState("all");
   const [remote, setRemote] = useState(false);
@@ -99,6 +105,11 @@ export default function JobsPage() {
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteText, setPasteText] = useState("");
   const [parsing, setParsing] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  function setActiveTab(tab: string) {
+    router.push(`/jobs?tab=${tab}`, { scroll: false });
+  }
 
   useEffect(() => {
     fetchSavedJobs();
@@ -212,6 +223,16 @@ export default function JobsPage() {
     }
   }
 
+  async function removeJob(e: React.MouseEvent, jobId: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm("Remove this saved job?")) return;
+    setRemovingId(jobId);
+    await fetch(`/api/jobs/${jobId}`, { method: "DELETE" });
+    fetchSavedJobs();
+    setRemovingId(null);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -256,7 +277,7 @@ export default function JobsPage() {
         </Dialog>
       </div>
 
-      <Tabs defaultValue="search">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="search">Search</TabsTrigger>
           <TabsTrigger value="saved">Saved ({savedJobs.length})</TabsTrigger>
@@ -413,20 +434,37 @@ export default function JobsPage() {
               {savedJobs.map((job) => {
                 const n = normalizeJob(job);
                 return (
-                  <Link key={n.id} href={`/jobs/${n.id}`}>
+                  <Link key={n.id} href={`/jobs/${n.id}?from=saved`}>
                     <Card className="cursor-pointer transition-shadow hover:shadow-md">
                       <CardHeader className="pb-3">
-                        <CardTitle className="text-lg">{n.title}</CardTitle>
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                          <Building className="h-3.5 w-3.5" />
-                          {n.company}
-                        </div>
-                        {n.location && (
-                          <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <MapPin className="h-3.5 w-3.5" />
-                            {n.location}
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-1">
+                            <CardTitle className="text-lg">{n.title}</CardTitle>
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                              <Building className="h-3.5 w-3.5" />
+                              {n.company}
+                            </div>
+                            {n.location && (
+                              <div className="flex items-center gap-2 text-sm text-gray-500">
+                                <MapPin className="h-3.5 w-3.5" />
+                                {n.location}
+                              </div>
+                            )}
                           </div>
-                        )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            onClick={(e) => removeJob(e, n.id)}
+                            disabled={removingId === n.id}
+                          >
+                            {removingId === n.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500" />
+                            )}
+                          </Button>
+                        </div>
                       </CardHeader>
                       <CardContent>
                         <div className="flex flex-wrap gap-2">
