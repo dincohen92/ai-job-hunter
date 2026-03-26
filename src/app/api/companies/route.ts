@@ -1,20 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getSessionUser } from "@/lib/session";
 
 export async function GET(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const user = await getSessionUser();
 
   const { searchParams } = new URL(request.url);
   const search = searchParams.get("search") || "";
 
   const companies = await prisma.company.findMany({
     where: {
-      userId: session.user.id,
+      userId: user.id,
       ...(search && {
         OR: [
           { name: { contains: search } },
@@ -38,10 +34,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const user = await getSessionUser();
 
   const body = await request.json();
   const { name, website, industry, size, location, description, culture, techStack, glassdoor, linkedin, notes, pros, cons, salaryRange, interviewProcess } = body;
@@ -54,7 +47,7 @@ export async function POST(request: NextRequest) {
   const existing = await prisma.company.findUnique({
     where: {
       userId_name: {
-        userId: session.user.id,
+        userId: user.id,
         name: name.trim(),
       },
     },
@@ -66,7 +59,7 @@ export async function POST(request: NextRequest) {
 
   const company = await prisma.company.create({
     data: {
-      userId: session.user.id,
+      userId: user.id,
       name: name.trim(),
       website,
       industry,

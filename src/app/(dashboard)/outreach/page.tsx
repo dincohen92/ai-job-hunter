@@ -30,14 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Send,
-  Sparkles,
-  Loader2,
-  Plus,
-  Mail,
-  Trash2,
-} from "lucide-react";
+import { Send, Loader2, Plus, Mail, Trash2 } from "lucide-react";
 
 interface EmailRecord {
   id: string;
@@ -57,79 +50,34 @@ interface Job {
   company: string;
 }
 
-interface Resume {
-  id: string;
-  name: string;
-}
-
 export default function OutreachPage() {
   const searchParams = useSearchParams();
   const preselectedJobId = searchParams.get("jobId");
 
   const [emails, setEmails] = useState<EmailRecord[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [resumes, setResumes] = useState<Resume[]>([]);
   const [composeOpen, setComposeOpen] = useState(!!preselectedJobId);
 
   // Compose form
   const [selectedJob, setSelectedJob] = useState(preselectedJobId || "");
-  const [selectedResume, setSelectedResume] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
-  const [tone, setTone] = useState("professional");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
-  const [generating, setGenerating] = useState(false);
   const [sending, setSending] = useState<string | null>(null);
-  const [generatedEmailId, setGeneratedEmailId] = useState<string | null>(null);
+  const [savedEmailId, setSavedEmailId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAll();
   }, []);
 
   async function fetchAll() {
-    const [emailsRes, jobsRes, resumesRes] = await Promise.all([
+    const [emailsRes, jobsRes] = await Promise.all([
       fetch("/api/outreach"),
       fetch("/api/jobs"),
-      fetch("/api/resume"),
     ]);
     if (emailsRes.ok) setEmails(await emailsRes.json());
     if (jobsRes.ok) setJobs(await jobsRes.json());
-    if (resumesRes.ok) {
-      const r = await resumesRes.json();
-      setResumes(r);
-      if (r.length > 0) setSelectedResume(r[0].id);
-    }
-  }
-
-  async function handleGenerate() {
-    if (!selectedJob || !recipientEmail) return;
-    setGenerating(true);
-
-    try {
-      const res = await fetch("/api/outreach/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jobId: selectedJob,
-          resumeId: selectedResume || undefined,
-          recipientName: recipientName || undefined,
-          recipientEmail,
-          tone,
-        }),
-      });
-
-      if (!res.ok) throw new Error("Generation failed");
-      const data = await res.json();
-      setSubject(data.subject);
-      setBody(data.plainText || data.body);
-      setGeneratedEmailId(data.id);
-      fetchAll();
-    } catch {
-      alert("Failed to generate email. Check your Anthropic API key.");
-    } finally {
-      setGenerating(false);
-    }
   }
 
   async function handleSend(emailId: string) {
@@ -154,14 +102,14 @@ export default function OutreachPage() {
   async function handleSaveDraft() {
     if (!subject || !body || !recipientEmail) return;
 
-    if (generatedEmailId) {
-      await fetch(`/api/outreach/${generatedEmailId}`, {
+    if (savedEmailId) {
+      await fetch(`/api/outreach/${savedEmailId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ subject, body, recipientEmail, recipientName }),
       });
     } else {
-      await fetch("/api/outreach", {
+      const res = await fetch("/api/outreach", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -172,6 +120,10 @@ export default function OutreachPage() {
           body,
         }),
       });
+      if (res.ok) {
+        const data = await res.json();
+        setSavedEmailId(data.id);
+      }
     }
 
     fetchAll();
@@ -191,7 +143,7 @@ export default function OutreachPage() {
     setRecipientEmail("");
     setSubject("");
     setBody("");
-    setGeneratedEmailId(null);
+    setSavedEmailId(null);
   }
 
   return (
@@ -210,40 +162,20 @@ export default function OutreachPage() {
               <DialogTitle>Compose Outreach Email</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Target Job</Label>
-                  <Select value={selectedJob} onValueChange={setSelectedJob}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a job" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {jobs.map((j) => (
-                        <SelectItem key={j.id} value={j.id}>
-                          {j.title} - {j.company}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Your Resume</Label>
-                  <Select
-                    value={selectedResume}
-                    onValueChange={setSelectedResume}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select resume" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {resumes.map((r) => (
-                        <SelectItem key={r.id} value={r.id}>
-                          {r.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <Label>Target Job</Label>
+                <Select value={selectedJob} onValueChange={setSelectedJob}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a job (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {jobs.map((j) => (
+                      <SelectItem key={j.id} value={j.id}>
+                        {j.title} - {j.company}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -268,39 +200,6 @@ export default function OutreachPage() {
               </div>
 
               <div>
-                <Label>Tone</Label>
-                <Select value={tone} onValueChange={setTone}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="professional">Professional</SelectItem>
-                    <SelectItem value="casual">Casual</SelectItem>
-                    <SelectItem value="enthusiastic">Enthusiastic</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button
-                onClick={handleGenerate}
-                disabled={generating || !selectedJob || !recipientEmail}
-                variant="outline"
-                className="w-full"
-              >
-                {generating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Generate with AI
-                  </>
-                )}
-              </Button>
-
-              <div>
                 <Label>Subject</Label>
                 <Input
                   value={subject}
@@ -315,7 +214,7 @@ export default function OutreachPage() {
                   className="min-h-[200px]"
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
-                  placeholder="Email body"
+                  placeholder="Paste your outreach email here (drafted by Ember)"
                 />
               </div>
 
@@ -323,13 +222,13 @@ export default function OutreachPage() {
                 <Button onClick={handleSaveDraft} variant="outline" className="flex-1">
                   Save as Draft
                 </Button>
-                {generatedEmailId && (
+                {savedEmailId && (
                   <Button
-                    onClick={() => handleSend(generatedEmailId)}
+                    onClick={() => handleSend(savedEmailId)}
                     className="flex-1"
-                    disabled={sending === generatedEmailId}
+                    disabled={sending === savedEmailId}
                   >
-                    {sending === generatedEmailId ? (
+                    {sending === savedEmailId ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
                       <Send className="mr-2 h-4 w-4" />

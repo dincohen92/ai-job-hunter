@@ -16,13 +16,9 @@ import {
   Building,
   MapPin,
   ExternalLink,
-  FileText,
-  UserCircle,
-  Send,
   ArrowLeft,
   Loader2,
   Trash2,
-  PenLine,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -47,7 +43,6 @@ interface JobDetail {
   applyUrl: string | null;
   source: string;
   application: { id: string; status: string } | null;
-  tailoredResumes: { id: string; matchScore: number | null; resume: { name: string } }[];
 }
 
 export default function JobDetailPage() {
@@ -251,67 +246,6 @@ export default function JobDetailPage() {
               </Select>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Link href={`/resume/tailor?jobId=${job.id}`}>
-                <Button variant="outline" className="w-full">
-                  <FileText className="mr-2 h-4 w-4" />
-                  Tailor Resume
-                </Button>
-              </Link>
-              <Link href={`/cv/generate?jobId=${job.id}`}>
-                <Button variant="outline" className="w-full">
-                  <UserCircle className="mr-2 h-4 w-4" />
-                  Build Resume from CV
-                </Button>
-              </Link>
-              <Link href={`/cover-letter/generate?jobId=${job.id}`}>
-                <Button variant="outline" className="w-full">
-                  <PenLine className="mr-2 h-4 w-4" />
-                  Generate Cover Letter
-                </Button>
-              </Link>
-              <Link href={`/outreach?jobId=${job.id}`}>
-                <Button variant="outline" className="w-full">
-                  <Send className="mr-2 h-4 w-4" />
-                  Generate Outreach Email
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-
-          {job.tailoredResumes.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Tailored Resumes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {job.tailoredResumes.map((tr) => (
-                    <div
-                      key={tr.id}
-                      className="flex items-center justify-between rounded-md border p-2 text-sm"
-                    >
-                      <span>{tr.resume.name}</span>
-                      {tr.matchScore !== null && (
-                        <Badge
-                          variant={
-                            tr.matchScore >= 70 ? "default" : "secondary"
-                          }
-                        >
-                          {tr.matchScore}% match
-                        </Badge>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
       </div>
     </div>

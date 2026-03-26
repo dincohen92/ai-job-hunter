@@ -4,42 +4,21 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import {
-  Upload,
-  FileText,
-  Sparkles,
-  Loader2,
-  Trash2,
-  Star,
-} from "lucide-react";
+import { Upload, FileText, Loader2, Trash2 } from "lucide-react";
 
 interface Resume {
   id: string;
   name: string;
   fileName: string | null;
   rawText: string;
-  parsed: string | null;
   isDefault: boolean;
   createdAt: string;
-}
-
-interface ParsedResume {
-  summary: string;
-  skills: string[];
-  experience: { title: string; company: string; duration: string; highlights: string[] }[];
-  education: { degree: string; institution: string; year: string }[];
-  strengths: string[];
-  weaknesses: string[];
-  overallScore: number;
 }
 
 export default function ResumePage() {
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [selected, setSelected] = useState<Resume | null>(null);
-  const [analysis, setAnalysis] = useState<ParsedResume | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
   const [uploadName, setUploadName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -54,21 +33,8 @@ export default function ResumePage() {
       const data = await res.json();
       setResumes(data);
       if (data.length > 0 && !selected) {
-        selectResume(data[0]);
+        setSelected(data[0]);
       }
-    }
-  }
-
-  function selectResume(resume: Resume) {
-    setSelected(resume);
-    if (resume.parsed) {
-      try {
-        setAnalysis(JSON.parse(resume.parsed));
-      } catch {
-        setAnalysis(null);
-      }
-    } else {
-      setAnalysis(null);
     }
   }
 
@@ -90,33 +56,13 @@ export default function ResumePage() {
       setUploadName("");
       await fetchResumes();
       const newResume = await res.json();
-      selectResume(newResume);
+      setSelected(newResume);
     } else {
       const data = await res.json();
       alert(data.error || "Upload failed");
     }
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
-  async function analyzeResume() {
-    if (!selected) return;
-    setAnalyzing(true);
-
-    const res = await fetch("/api/resume/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ resumeId: selected.id }),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      setAnalysis(data);
-      fetchResumes();
-    } else {
-      alert("Analysis failed. Check your Anthropic API key.");
-    }
-    setAnalyzing(false);
   }
 
   async function deleteResume(id: string) {
@@ -128,7 +74,6 @@ export default function ResumePage() {
     });
     if (selected?.id === id) {
       setSelected(null);
-      setAnalysis(null);
     }
     fetchResumes();
   }
@@ -196,7 +141,7 @@ export default function ResumePage() {
                           ? "border-blue-500 bg-blue-50"
                           : "hover:bg-gray-50"
                       }`}
-                      onClick={() => selectResume(resume)}
+                      onClick={() => setSelected(resume)}
                     >
                       <div className="flex items-center gap-2">
                         <FileText className="h-4 w-4 text-gray-400" />
@@ -209,24 +154,17 @@ export default function ResumePage() {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        {resume.parsed && (
-                          <Badge variant="secondary" className="text-xs">
-                            Analyzed
-                          </Badge>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteResume(resume.id);
-                          }}
-                        >
-                          <Trash2 className="h-3.5 w-3.5 text-gray-400" />
-                        </Button>
-                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteResume(resume.id);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-gray-400" />
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -235,132 +173,19 @@ export default function ResumePage() {
           </Card>
         </div>
 
-        {/* Right: resume detail + analysis */}
-        <div className="lg:col-span-2 space-y-4">
+        {/* Right: resume text */}
+        <div className="lg:col-span-2">
           {selected ? (
-            <>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>{selected.name}</CardTitle>
-                  <Button
-                    onClick={analyzeResume}
-                    disabled={analyzing}
-                  >
-                    {analyzing ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Analyzing...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        {analysis ? "Re-analyze" : "Analyze with AI"}
-                      </>
-                    )}
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  <pre className="max-h-[400px] overflow-y-auto whitespace-pre-wrap rounded-md bg-gray-50 p-4 text-sm">
-                    {selected.rawText}
-                  </pre>
-                </CardContent>
-              </Card>
-
-              {analysis && (
-                <>
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <Card>
-                      <CardContent className="flex items-center gap-3 pt-6">
-                        <Star className="h-8 w-8 text-yellow-500" />
-                        <div>
-                          <p className="text-2xl font-bold">
-                            {analysis.overallScore}/100
-                          </p>
-                          <p className="text-sm text-gray-500">Overall Score</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="pt-6">
-                        <p className="text-sm font-medium text-green-600">
-                          Strengths
-                        </p>
-                        <ul className="mt-1 space-y-1">
-                          {analysis.strengths.map((s, i) => (
-                            <li key={i} className="text-sm">
-                              {s}
-                            </li>
-                          ))}
-                        </ul>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="pt-6">
-                        <p className="text-sm font-medium text-orange-600">
-                          Areas to Improve
-                        </p>
-                        <ul className="mt-1 space-y-1">
-                          {analysis.weaknesses.map((w, i) => (
-                            <li key={i} className="text-sm">
-                              {w}
-                            </li>
-                          ))}
-                        </ul>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Skills</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex flex-wrap gap-2">
-                        {analysis.skills.map((skill, i) => (
-                          <Badge key={i} variant="secondary">
-                            {skill}
-                          </Badge>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Summary</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm">{analysis.summary}</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Experience</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {analysis.experience.map((exp, i) => (
-                        <div key={i} className="border-b pb-3 last:border-0">
-                          <p className="font-medium">
-                            {exp.title} at {exp.company}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {exp.duration}
-                          </p>
-                          <ul className="mt-1 list-disc pl-5">
-                            {exp.highlights.map((h, j) => (
-                              <li key={j} className="text-sm">
-                                {h}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                </>
-              )}
-            </>
+            <Card>
+              <CardHeader>
+                <CardTitle>{selected.name}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <pre className="max-h-[600px] overflow-y-auto whitespace-pre-wrap rounded-md bg-gray-50 p-4 text-sm">
+                  {selected.rawText}
+                </pre>
+              </CardContent>
+            </Card>
           ) : (
             <Card>
               <CardContent className="py-20 text-center text-gray-500">

@@ -1,8 +1,10 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "./auth";
+// Auth removed — single-user local app. Always returns Din's user.
+const DEFAULT_USER = {
+  id: "cmlb70j660000vhm0x3p57ve7",
+  email: "dincohen92@gmail.com",
+  name: "din cohen",
+};
 
 export async function getSessionUser() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return null;
-  return session.user;
+  return DEFAULT_USER;
 }

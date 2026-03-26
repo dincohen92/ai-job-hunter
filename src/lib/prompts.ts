@@ -347,6 +347,143 @@ Please write a ${tone} cover letter for this position.`,
   };
 }
 
+export function buildCompanyResearchPrompt(
+  companyName: string,
+  companyWebsite: string | null,
+  searchContext: string,
+  existingNotes?: string
+) {
+  return {
+    system: `You are an expert company researcher helping a job seeker understand a company deeply.
+
+Based on the search results provided, extract and structure information about this company.
+
+Return ONLY valid JSON in this exact format:
+{
+  "culture": "2-4 sentence description of company culture, values, work environment, remote policy",
+  "techStack": ["technology1", "technology2", "technology3"],
+  "interviewProcess": "Description of their typical interview process: number of rounds, types, timeline, what to expect",
+  "pros": ["positive aspect 1", "positive aspect 2", "positive aspect 3"],
+  "cons": ["concern 1", "concern 2"],
+  "redFlags": ["serious red flag 1"],
+  "typicalSalaryRange": "e.g. $120k-$180k for senior engineers, $80k-$120k for mid-level",
+  "glassdoorRating": 4.2,
+  "description": "2-3 sentence company overview",
+  "industry": "Industry category",
+  "size": "startup"
+}
+
+Rules:
+- Only include information supported by the search results — do not fabricate
+- If information is not available, use null for that field
+- techStack must be an array of strings
+- pros, cons, redFlags must be arrays of strings
+- glassdoorRating should be a number between 1.0 and 5.0, or null if not found
+- size must be one of: startup, small, medium, large, enterprise
+
+Return ONLY valid JSON, no markdown or extra text.`,
+    user: `COMPANY: ${companyName}
+${companyWebsite ? `WEBSITE: ${companyWebsite}` : ""}
+${existingNotes ? `\nEXISTING NOTES:\n${existingNotes}` : ""}
+
+SEARCH RESULTS:
+${searchContext}
+
+Please extract structured company information from the search results above.`,
+  };
+}
+
+export function buildEnhancedInterviewQuestionsPrompt(
+  jobDescription: string,
+  jobTitle: string,
+  company: string,
+  interviewType: string,
+  companyContext?: {
+    culture?: string | null;
+    techStack?: string | null;
+    interviewProcess?: string | null;
+    pros?: string | null;
+    cons?: string | null;
+  }
+) {
+  const typeInstructions: Record<string, string> = {
+    behavioral: "Focus heavily on behavioral questions using STAR method scenarios.",
+    technical: "Include more technical and problem-solving questions specific to the role.",
+    phone: "Focus on screening-level questions about experience and motivation.",
+    video: "Mix of behavioral and technical questions typical for video interviews.",
+    onsite: "Comprehensive mix including behavioral, technical, and situational questions.",
+    panel: "Include questions that might come from different perspectives (HR, team, manager).",
+    general: "Generate a comprehensive mix covering behavioral, technical, situational, and company-specific questions.",
+  };
+
+  const companyContextSection = companyContext
+    ? `\nCOMPANY CONTEXT:
+${companyContext.culture ? `Culture: ${companyContext.culture}` : ""}
+${companyContext.techStack ? `Tech Stack: ${companyContext.techStack}` : ""}
+${companyContext.interviewProcess ? `Known Interview Process: ${companyContext.interviewProcess}` : ""}
+${companyContext.pros ? `Company Strengths: ${companyContext.pros}` : ""}
+${companyContext.cons ? `Known Concerns: ${companyContext.cons}` : ""}`
+    : "";
+
+  return {
+    system: `You are an expert interview coach. Generate targeted practice interview questions based on the job description, company culture, and interview type.
+
+For each question, provide:
+- The question text
+- The question type (behavioral, technical, situational, or company)
+- A brief hint about what the interviewer is looking for
+- For behavioral questions, suggest a STAR framework outline
+
+${typeInstructions[interviewType] || typeInstructions.general}
+
+${companyContext ? "Use the company context to make questions MORE specific to this company's culture, values, and tech stack." : ""}
+
+Return a JSON response:
+{
+  "questions": [
+    {
+      "question": "Tell me about a time when...",
+      "type": "behavioral",
+      "hint": "They want to see your problem-solving ability",
+      "starFramework": {
+        "situation": "Set the context - describe a specific situation",
+        "task": "What was your responsibility or goal?",
+        "action": "What specific steps did you take?",
+        "result": "What was the outcome? Use metrics if possible"
+      }
+    },
+    {
+      "question": "How would you approach...",
+      "type": "technical",
+      "hint": "Demonstrate your technical knowledge",
+      "starFramework": null
+    }
+  ],
+  "companyResearchTips": [
+    "Tip specific to this company based on the context provided",
+    "Research tip 2"
+  ],
+  "prepChecklist": [
+    "Review the job description requirements",
+    "Prepare 3-5 questions to ask the interviewer",
+    "Test your technology setup"
+  ]
+}
+
+Generate 12-15 high-quality questions. Return ONLY valid JSON.`,
+    user: `INTERVIEW DETAILS:
+Position: ${jobTitle}
+Company: ${company}
+Interview Type: ${interviewType}
+${companyContextSection}
+
+JOB DESCRIPTION:
+${jobDescription}
+
+Please generate practice interview questions tailored to this specific role, company, and context.`,
+  };
+}
+
 export function buildInterviewQuestionsPrompt(
   jobDescription: string,
   jobTitle: string,

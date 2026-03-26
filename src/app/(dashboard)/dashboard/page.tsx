@@ -1,22 +1,18 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { getSessionUser } from "@/lib/session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Briefcase, FileText, Send, TrendingUp, CheckSquare } from "lucide-react";
+import { Briefcase, FileText, Send, TrendingUp, CheckSquare, Star } from "lucide-react";
 import Link from "next/link";
 
 export default async function DashboardPage() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) redirect("/login");
-
-  const userId = session.user.id;
+  const user = await getSessionUser();
+  const userId = user.id;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const [jobCount, applicationCount, resumeCount, emailSentCount, recentJobs, recentApplications, upcomingTasks, pendingTaskCount] =
+  const [jobCount, applicationCount, resumeCount, emailSentCount, recentJobs, recentApplications, upcomingTasks, pendingTaskCount, targetCompanies] =
     await Promise.all([
       prisma.savedJob.count({ where: { userId } }),
       prisma.application.count({ where: { userId } }),
@@ -47,6 +43,19 @@ export default async function DashboardPage() {
         take: 5,
       }),
       prisma.task.count({ where: { userId, status: "pending" } }),
+      prisma.company.findMany({
+        where: { userId, isTarget: true },
+        include: {
+          _count: { select: { savedJobs: true } },
+          savedJobs: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { id: true, title: true },
+          },
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 5,
+      }),
     ]);
 
   const statusCounts = await prisma.application.groupBy({
@@ -145,6 +154,44 @@ export default async function DashboardPage() {
                   </div>
                 )
               )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Target Companies Widget */}
+      {targetCompanies.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+              Target Companies
+            </CardTitle>
+            <Link href="/companies" className="text-sm text-blue-600 hover:underline">
+              View all
+            </Link>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {targetCompanies.map((company) => (
+                <Link
+                  key={company.id}
+                  href={`/companies/${company.id}`}
+                  className="flex items-center justify-between rounded-md border p-3 transition-colors hover:bg-gray-50"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">{company.name}</p>
+                    {company.savedJobs.length > 0 && (
+                      <p className="text-sm text-gray-500 truncate">
+                        Latest: {company.savedJobs[0].title}
+                      </p>
+                    )}
+                  </div>
+                  <Badge variant="outline" className="shrink-0 ml-2">
+                    {company._count.savedJobs} role{company._count.savedJobs !== 1 ? "s" : ""}
+                  </Badge>
+                </Link>
+              ))}
             </div>
           </CardContent>
         </Card>

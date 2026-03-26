@@ -29,6 +29,9 @@ import {
   ThumbsDown,
   MessageSquare,
   Link2,
+  Star,
+  Sparkles,
+  Search,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -62,6 +65,7 @@ interface Company {
   cons: string | null;
   salaryRange: string | null;
   interviewProcess: string | null;
+  isTarget: boolean;
   createdAt: string;
   updatedAt: string;
   savedJobs: SavedJob[];
@@ -86,6 +90,9 @@ export default function CompanyDetailPage({
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [researching, setResearching] = useState(false);
+  const [findingRoles, setFindingRoles] = useState(false);
+  const [rolesResult, setRolesResult] = useState<{ newlySaved: number; totalFound: number } | null>(null);
   const [formData, setFormData] = useState<Partial<Company>>({});
 
   useEffect(() => {
@@ -123,6 +130,61 @@ export default function CompanyDetailPage({
     setSaving(false);
   }
 
+  async function handleAiResearch() {
+    if (!company) return;
+    setResearching(true);
+    const res = await fetch(`/api/companies/${company.id}/ai-research`, {
+      method: "POST",
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setCompany({ ...company, ...data.company });
+      setFormData((prev) => ({ ...prev, ...data.company }));
+    } else {
+      const data = await res.json();
+      alert(data.error || "Research failed");
+    }
+    setResearching(false);
+  }
+
+  async function handleFindRoles() {
+    if (!company) return;
+    setFindingRoles(true);
+    setRolesResult(null);
+    const res = await fetch(`/api/companies/${company.id}/find-roles`, {
+      method: "POST",
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setRolesResult({ newlySaved: data.newlySaved, totalFound: data.totalFound });
+      // Refresh company to update job count
+      const companyRes = await fetch(`/api/companies/${company.id}`);
+      if (companyRes.ok) {
+        const updated = await companyRes.json();
+        setCompany(updated);
+        setFormData(updated);
+      }
+    } else {
+      const data = await res.json();
+      alert(data.error || "Role discovery failed");
+    }
+    setFindingRoles(false);
+  }
+
+  async function handleTargetToggle() {
+    if (!company) return;
+    const newIsTarget = !company.isTarget;
+    const res = await fetch(`/api/companies/${company.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isTarget: newIsTarget }),
+    });
+    if (res.ok) {
+      setCompany({ ...company, isTarget: newIsTarget });
+      setFormData((prev) => ({ ...prev, isTarget: newIsTarget }));
+    }
+  }
+
   function getSizeLabel(size: string | null) {
     if (!size) return "Not specified";
     const found = COMPANY_SIZES.find((s) => s.value === size);
@@ -157,11 +219,41 @@ export default function CompanyDetailPage({
             )}
           </div>
         </div>
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="mr-2 h-4 w-4" />
-          {saving ? "Saving..." : "Save Changes"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={company.isTarget ? "default" : "outline"}
+            onClick={handleTargetToggle}
+            className={company.isTarget ? "bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500" : ""}
+          >
+            <Star className={`mr-2 h-4 w-4 ${company.isTarget ? "fill-current" : ""}`} />
+            {company.isTarget ? "Targeted" : "Add to Targets"}
+          </Button>
+          <Button variant="outline" onClick={handleAiResearch} disabled={researching}>
+            <Sparkles className="mr-2 h-4 w-4" />
+            {researching ? "Researching..." : "AI Research"}
+          </Button>
+          <Button variant="outline" onClick={handleFindRoles} disabled={findingRoles}>
+            <Search className="mr-2 h-4 w-4" />
+            {findingRoles ? "Searching..." : "Find Open Roles"}
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
+            <Save className="mr-2 h-4 w-4" />
+            {saving ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
       </div>
+
+      {rolesResult && (
+        <div className="rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-800">
+          Found {rolesResult.totalFound} role{rolesResult.totalFound !== 1 ? "s" : ""} at {company.name}.{" "}
+          {rolesResult.newlySaved > 0
+            ? `${rolesResult.newlySaved} new job${rolesResult.newlySaved !== 1 ? "s" : ""} saved and linked to this company.`
+            : "All roles were already saved."}
+          {rolesResult.totalFound > 0 && (
+            <Link href="/jobs" className="ml-2 underline font-medium">View jobs →</Link>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-4 text-sm text-gray-600">
         {company.location && (

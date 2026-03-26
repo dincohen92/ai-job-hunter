@@ -71,7 +71,7 @@ export async function PUT(
     return NextResponse.json({ error: "Company not found" }, { status: 404 });
   }
 
-  const { name, website, industry, size, location, description, culture, techStack, glassdoor, linkedin, notes, pros, cons, salaryRange, interviewProcess } = body;
+  const { name, website, industry, size, location, description, culture, techStack, glassdoor, linkedin, notes, pros, cons, salaryRange, interviewProcess, isTarget } = body;
 
   // Check for duplicate name if name is being changed
   if (name && name.trim() !== existing.name) {
@@ -107,6 +107,7 @@ export async function PUT(
       cons,
       salaryRange,
       interviewProcess,
+      ...(isTarget !== undefined && { isTarget }),
     },
   });
 

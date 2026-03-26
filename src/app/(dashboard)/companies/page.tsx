@@ -30,6 +30,7 @@ import {
   Users,
   Briefcase,
   Trash2,
+  Star,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -41,6 +42,7 @@ interface Company {
   size: string | null;
   location: string | null;
   description: string | null;
+  isTarget: boolean;
   createdAt: string;
   updatedAt: string;
   _count: {
@@ -115,6 +117,21 @@ export default function CompaniesPage() {
       alert(data.error || "Failed to create company");
     }
     setSaving(false);
+  }
+
+  async function handleTargetToggle(e: React.MouseEvent, company: Company) {
+    e.preventDefault();
+    e.stopPropagation();
+    const res = await fetch(`/api/companies/${company.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isTarget: !company.isTarget }),
+    });
+    if (res.ok) {
+      setCompanies((prev) =>
+        prev.map((c) => (c.id === company.id ? { ...c, isTarget: !c.isTarget } : c))
+      );
+    }
   }
 
   async function handleDelete(e: React.MouseEvent, companyId: string) {
@@ -269,14 +286,25 @@ export default function CompaniesPage() {
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
                     <CardTitle className="text-lg">{company.name}</CardTitle>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="opacity-0 group-hover:opacity-100 h-8 w-8 text-gray-400 hover:text-red-600"
-                      onClick={(e) => handleDelete(e, company.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={`h-8 w-8 ${company.isTarget ? "text-yellow-500" : "opacity-0 group-hover:opacity-100 text-gray-300 hover:text-yellow-500"}`}
+                        onClick={(e) => handleTargetToggle(e, company)}
+                        title={company.isTarget ? "Remove from targets" : "Add to targets"}
+                      >
+                        <Star className={`h-4 w-4 ${company.isTarget ? "fill-current" : ""}`} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="opacity-0 group-hover:opacity-100 h-8 w-8 text-gray-400 hover:text-red-600"
+                        onClick={(e) => handleDelete(e, company.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   {company.industry && (
                     <Badge variant="secondary" className="w-fit">

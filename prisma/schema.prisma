@@ -348,6 +348,7 @@ model Company {
   cons        String?  // Negative aspects / red flags
   salaryRange String?  // Typical salary range for roles
   interviewProcess String? // Notes about their interview process
+  isTarget    Boolean  @default(false) // Marked as a target company to watch
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -356,6 +357,7 @@ model Company {
 
   @@unique([userId, name])
   @@index([userId])
+  @@index([userId, isTarget])
 }
 
 model Offer {
@@ -410,8 +412,12 @@ model UserPreference {
   preferredSkills String?  // JSON array
   avoidCompanies  String?  // JSON array
   minSalary       Int?
+  maxSalary       Int?
   remoteOnly      Boolean  @default(false)
   locations       String?  // JSON array
+  jobType         String?  // "full-time", "part-time", "contract", "any"
+  workStyle       String?  // "remote", "hybrid", "onsite", "any"
+  experienceLevel String?  // "entry", "mid", "senior", "principal", "any"
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

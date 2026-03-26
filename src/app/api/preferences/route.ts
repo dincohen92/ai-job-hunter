@@ -13,14 +13,17 @@ export async function GET() {
   });
 
   if (!preferences) {
-    // Return default preferences
     return NextResponse.json({
       preferredTitles: [],
       preferredSkills: [],
       avoidCompanies: [],
       minSalary: null,
+      maxSalary: null,
       remoteOnly: false,
       locations: [],
+      jobType: "any",
+      workStyle: "any",
+      experienceLevel: "any",
     });
   }
 
@@ -36,6 +39,9 @@ export async function GET() {
       ? JSON.parse(preferences.avoidCompanies)
       : [],
     locations: preferences.locations ? JSON.parse(preferences.locations) : [],
+    jobType: preferences.jobType || "any",
+    workStyle: preferences.workStyle || "any",
+    experienceLevel: preferences.experienceLevel || "any",
   });
 }
 
@@ -48,28 +54,47 @@ export async function PUT(request: NextRequest) {
   const body = await request.json();
 
   const data = {
-    preferredTitles: body.preferredTitles
+    preferredTitles: body.preferredTitles?.length
       ? JSON.stringify(body.preferredTitles)
       : null,
-    preferredSkills: body.preferredSkills
+    preferredSkills: body.preferredSkills?.length
       ? JSON.stringify(body.preferredSkills)
       : null,
-    avoidCompanies: body.avoidCompanies
+    avoidCompanies: body.avoidCompanies?.length
       ? JSON.stringify(body.avoidCompanies)
       : null,
     minSalary: body.minSalary ? parseInt(body.minSalary) : null,
-    remoteOnly: body.remoteOnly ?? false,
-    locations: body.locations ? JSON.stringify(body.locations) : null,
+    maxSalary: body.maxSalary ? parseInt(body.maxSalary) : null,
+    remoteOnly: body.workStyle === "remote" || body.remoteOnly || false,
+    locations: body.locations?.length ? JSON.stringify(body.locations) : null,
+    jobType: body.jobType && body.jobType !== "any" ? body.jobType : null,
+    workStyle: body.workStyle && body.workStyle !== "any" ? body.workStyle : null,
+    experienceLevel:
+      body.experienceLevel && body.experienceLevel !== "any"
+        ? body.experienceLevel
+        : null,
   };
 
   const preferences = await prisma.userPreference.upsert({
     where: { userId: user.id },
-    create: {
-      userId: user.id,
-      ...data,
-    },
+    create: { userId: user.id, ...data },
     update: data,
   });
 
-  return NextResponse.json(preferences);
+  return NextResponse.json({
+    ...preferences,
+    preferredTitles: preferences.preferredTitles
+      ? JSON.parse(preferences.preferredTitles)
+      : [],
+    preferredSkills: preferences.preferredSkills
+      ? JSON.parse(preferences.preferredSkills)
+      : [],
+    avoidCompanies: preferences.avoidCompanies
+      ? JSON.parse(preferences.avoidCompanies)
+      : [],
+    locations: preferences.locations ? JSON.parse(preferences.locations) : [],
+    jobType: preferences.jobType || "any",
+    workStyle: preferences.workStyle || "any",
+    experienceLevel: preferences.experienceLevel || "any",
+  });
 }
